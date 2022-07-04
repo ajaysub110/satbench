@@ -10,7 +10,6 @@ import shutil
 import argparse
 
 from dataloader import get_train_dataloaders_cifar10, get_train_dataloaders_stl10, get_train_dataloaders_imagenet
-from args import arg_parser
 from adaptive_inference import dynamic_evaluate
 import models
 from op_counter import measure_model

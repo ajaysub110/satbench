@@ -12,7 +12,6 @@ import shutil
 import json
 import argparse
 
-from args import arg_parser
 from adaptive_inference import dynamic_evaluate
 import models
 from op_counter import measure_model

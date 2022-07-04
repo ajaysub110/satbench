@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -9,12 +11,11 @@ import time
 import argparse
 import shutil
 
-from dataloader import get_test_dataloaders_cifar10, get_test_dataloaders_stl10, get_test_dataloaders_imagenet
-from args import arg_parser
+from dataloader import get_human_test_dataloaders_imagenet, get_test_dataloaders_cifar10, get_test_dataloaders_stl10, get_test_dataloaders_imagenet
 from adaptive_inference import dynamic_evaluate, anytime_evaluate
 import models
 from op_counter import measure_model
-from utils import LabelSmoothingLoss, train, validate, validate_force_flops, save_checkpoint, load_checkpoint, AverageMeter, accuracy, adjust_learning_rate
+from utils import LabelSmoothingLoss, train, validate, validate_force_flops, save_checkpoint, load_checkpoint, AverageMeter, accuracy, adjust_learning_rate, validateonhuman
 
 import numpy as np
 import torch
@@ -36,6 +37,7 @@ parser.add_argument('--criterion', default='ce', type=str)
 parser.add_argument('--evalmode', default='force_flops', type=str)
 parser.add_argument('--anytime_threshold', default=0.9, type=float)
 parser.add_argument('--inference', default='standard', type=str)
+parser.add_argument('--subsample', default=False, type=bool)
 global_args = parser.parse_args()
 
 class MSDNETConfig():
@@ -60,6 +62,7 @@ class MSDNETConfig():
     anytime_threshold = global_args.anytime_threshold
     num_classes = global_args.num_classes
     inference = global_args.inference
+    subsample = global_args.subsample
 
 #additional args
     arch='msdnetmod'
@@ -85,7 +88,7 @@ class MSDNETConfig():
     prune='max' 
     reduction=0.5
     resume=False
-    save='./model_files/test/imagenet/{}_{}'.format(tag,time.strftime('%Y.%m.%d_%H.%M.%S')) # change the save path to a new path
+    save='./model_files/testonhuman/imagenet/{}_{}'.format(tag,time.strftime('%Y.%m.%d_%H.%M.%S')) # change the save path to a new path
     seed=0
     start_epoch=0
     step=2
@@ -162,25 +165,11 @@ def run_testing():
 
     cudnn.benchmark = True
 
-    if args.data.startswith('cifar'):
-        train_loader, val_loader, test_loader = get_test_dataloaders_cifar10(args)
-    elif args.data == 'stl10':
-        train_loader, val_loader, test_loader = get_test_dataloaders_stl10(args)
-    elif args.data == 'imagenet':
-        test_loader = get_test_dataloaders_imagenet(args)
-    else:
-        print('NO DATASET SELECTED') 
-
     if args.evalmode is not None:
         state_dict = torch.load(args.evaluate_from)['state_dict']
         model.load_state_dict(state_dict)
 
-        if args.evalmode == 'force_flops':
-            validate_force_flops(args, test_loader, model, criterion)
-        elif args.evalmode == 'anytime': #this appears buggy
-            anytime_evaluate(model, test_loader, val_loader, args)
-        elif args.evalmode == 'dynamic':
-            dynamic_evaluate(model, test_loader, val_loader, args)
+        validateonhuman(args, model, criterion, n_flops)
         return
     else:
         print('NEED EVALUTAION MODE')
@@ -200,6 +189,8 @@ def run_testing():
 
 
 if __name__ == "__main__":
+    # args = arg_parser.parse_args()
+
     args = MSDNETConfig()
 
     if args.mode == 'noise':
@@ -208,14 +199,11 @@ if __name__ == "__main__":
         args.save = args.save + '_noise' + str(args.noise)
         print("NOISE:", str(args.noise))
     elif args.mode == 'blur':
-        # blur_stds = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0]
-        # args.blur = blur_stds[args.sweep_step - 1]
-        args.blur = args.pert_std
+        blur_stds = [0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0]
+        args.blur = blur_stds[args.sweep_step - 1]
         args.save = args.save + '_blur' + str(args.blur)
     elif args.mode == 'color':
-        args.save = args.save + '_color'
-    elif args.mode == 'gray':
-        args.save = args.save + '_gray'
+        args.save = args.save + '_color_' + str(args.color)
 
     print(args) 
     if args.gpu:

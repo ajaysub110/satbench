@@ -26,6 +26,7 @@ parser.add_argument('--dataset', default='cifar10', type=str)
 parser.add_argument('--class_num', default=10, type=int)
 parser.add_argument('--mode', default='gray', type=str, choices=['gray', 'color', 'noise', 'blur'])
 parser.add_argument('--sweep-step', default=1, type=int)
+parser.add_argument('--subsample', default=False, type=bool)
 
 parser.add_argument('--dropout', default=False, type=bool)
 parser.add_argument('--subset', default=False, type=bool)
@@ -58,7 +59,6 @@ elif args.mode == 'blur':
         args.blur_std = blur_stds[args.sweep_step - 1]
         args.kernel_size = 49
 
-testloader = get_dataloaders(args, train=False)
 
 net = None
 if args.depth == 0:
@@ -99,14 +99,8 @@ if __name__ == "__main__":
         args.mode,
         args.sweep_step
     )
-    root = os.path.join('expt/test/{}'.format(args.dataset), expt_id)
+    root = os.path.join('expt/testonhuman/{}'.format(args.dataset), expt_id)
     os.makedirs(root, exist_ok=True)
-
-    if (args.dataset=='imagenet') & (args.class_num==16):
-        sixteen_class_map_master = pd.read_csv('../datasets/imagenet_mapping.csv', header=0)
-        thousand_class_ids = sixteen_class_map_master['thousand_class_id'].values
-        sixteen_class_mapping = pd.Series(sixteen_class_map_master['sixteen_class_id'].values,
-                                        index=sixteen_class_map_master['thousand_class_id']).to_dict()
 
     with open(os.path.join(root, "config.json"), 'w') as f:
         json.dump(vars(args), f)
@@ -114,27 +108,27 @@ if __name__ == "__main__":
     print("Waiting Test!")
     flops = []
     accs = []
+    results = {}
     for c in range(0,5):
         caught = [0, 0, 0, 0, 0]
+        t = str(c)
+        args.dirs = [t]
+        testloader = get_dataloaders(args, train=False, human=True)
+
         with torch.no_grad():
             correct4, correct3, correct2, correct1, correct0 = 0, 0, 0, 0, 0
             predicted4, predicted3, predicted2, predicted1, predicted0 = 0, 0, 0, 0, 0
-            correct = 0.0
-            total = 0.0
-            right = 0
+            
+            if args.mode == 'color' or args.mode == 'gray':
+                right = dict([(k,[0,0]) for k in ['c', 'g']])
+            elif args.mode == 'noise':
+                right = dict([(k,[0,0]) for k in ['0', '0.04', '0.16']])
+            elif args.mode == 'blur':
+                right = dict([(k,[0,0]) for k in ['0', '3', '9']])
+
             for data in testloader:
                 net.eval()
-                images, labels = data
-
-                if args.dataset == "imagenet" and args.class_num == 16:
-                    idx_keep = torch.tensor([x.item() in thousand_class_ids for x in labels])
-                    labels = labels[idx_keep]
-                    images = images[idx_keep]
-
-                    labels = torch.tensor([sixteen_class_mapping[x.item()] for x in labels])
-
-                    if images.size(0) == 0:
-                        continue
+                images, labels, modes = data
 
                 images, labels = images.to(device), labels.to(device)
                 outputs, feature_loss = net(images)
@@ -152,7 +146,7 @@ if __name__ == "__main__":
                         caught[c] += 1
                         predict = torch.argmax(logits)
                         if predict.cpu().numpy().item() == labels[index]:
-                            right += 1
+                            right[modes[index]][0] += 1
 
                         ok = True
 
@@ -162,32 +156,46 @@ if __name__ == "__main__":
                         logits = ensemble[index]
                         predict = torch.argmax(logits)
                         if predict.cpu().numpy().item() == labels[index]:
-                            right += 1
+                            right[modes[index]][0] += 1
 
-                total += float(labels.size(0))
+                    right[modes[index]][1] += 1
+                # total += float(labels.size(0))
+
+            # compute accuracy
+            exit_accuracies = dict([(k, v[0]*100/v[1]) for k, v in right.items()])
+            
+            for k, v in exit_accuracies.items():
+                if k not in results:
+                    results[k] = []
+
+                results[k].append(exit_accuracies[k])
 
             # FLOPs (only for resnet18)
 
-            print("caughts:", caught)
-            acceleration_ratio = 1/((0.32 * caught[0] + 0.53* caught[1] + 0.76*caught[2] + 1.0 * caught[3] + 1.07 * caught[4])/total)
-            accr_msg = "Acceleration ratio: %.4f " % acceleration_ratio
+            # print("caughts:", caught)
+            # acceleration_ratio = 1/((0.32 * caught[0] + 0.53* caught[1] + 0.76*caught[2] + 1.0 * caught[3] + 1.07 * caught[4])/total)
+            # accr_msg = "Acceleration ratio: %.4f " % acceleration_ratio
 
-            ops = sum([i*j for i,j in zip(net_ops, caught)])/total
-            ops_msg = 'FLOPs: %.4f ' % ops
+            # ops = sum([i*j for i,j in zip(net_ops, caught)])/total
+            # ops_msg = 'FLOPs: %.4f ' % ops
 
-            print(ops_msg)
-            print(accr_msg)
+            # print(ops_msg)
+            # print(accr_msg)
 
-            tst_msg = 'Test Set Accuracy:  %.4f%% ' % (100 * right / total) 
-            print(tst_msg)
-            print("-----------------")
-            accs.append(100 * right / total)
-            flops.append(ops)
+            # tst_msg = 'Test Set Accuracy:  %.4f%% ' % (100 * right / total) 
+            # print(tst_msg)
+            # print("-----------------")
+            # accs.append(100 * right / total)
+            # flops.append(ops)
 
-            with open(os.path.join(root, "summary.log"), 'a') as f:
-                f.write(tst_msg + accr_msg + ops_msg + '\n')
+            # with open(os.path.join(root, "summary.log"), 'a') as f:
+            #     f.write(tst_msg + accr_msg + ops_msg + '\n')
 
-    print('flops = {}'.format(flops))
-    print('accs = {}'.format(accs))
-
+    # print('flops = {}'.format(flops))
+    # print('accs = {}'.format(accs))
+    print(results)
+    results['flops'] = net_ops
+    
+    with open(os.path.join(root, 'results.json'), 'w') as fp:
+        json.dump(results, fp)
 
