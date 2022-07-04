@@ -2,7 +2,7 @@
 
 **This repository contains code used in the paper:**
 
-"SATBench: Benchmarking the speed-accuracy tradeoff in object recognition by humans and dynamic neural networks" by Ajay Subramanian, Omkar Kumbhar, Elena Sizikova, Najib J. Majaj, Denis G. Pelli (New York University, 2022).
+![SATBench: Benchmarking the speed-accuracy tradeoff in object recognition by humans and dynamic neural networks](https://arxiv.org/abs/2206.08427) by Ajay Subramanian, Omkar Kumbhar, Elena Sizikova, Najib J. Majaj, Denis G. Pelli (New York University, 2022).
 
 Our contributions are as follows:
 * We present large-scale (148 human observers), public dataset on timed ImageNet [1] object recognition with 16 categories, across color, grayscale, 3 noise and 3 blur conditions. For each condition, we tested human performance for 5 reaction time (RT) values. This data provides a benchmark for the human speed-accuracy tradeoff and is specifically intended to facilitate comparison between neural networks and humans on timed object recognition.
@@ -14,9 +14,8 @@ Our contributions are as follows:
 ## Table of Contents
 1. Dataset
 2. Code
-3. Usage examples
-4. Pretrained models
-5. Citation
+3. Citation
+4. References
 
 ## Dataset
 Our human dataset is collected using a reaction time paradigm proposed by McElree & Carrasco [2] where observers are forced to respond at a beep which sounds at a specific time after target presentation. Varying the beep interval across several blocks helps us collect object recognition data across different reaction times (`500ms`, `900ms`, `1100ms`, `1300ms`, `1500ms`). We evaluate dynamic neural networks using the same paradigm with computational FLOPs used as an analog for reaction time.
@@ -37,6 +36,16 @@ ConvRNN: https://github.com/cjspoerer/rcnn-sat
 CNet: https://github.com/michael-iuzzolino/CascadedNets
 
 Code for each model is available in a subdirectory with the model's name. Documentation, instructions for training and inference and links to pretrained networks will be added soon for all models in their respective README.md files.
+
+## Citation
+```
+@article{subramanian2022satbench,
+  title={SATBench: Benchmarking the speed-accuracy tradeoff in object recognition by humans and dynamic neural networks},
+  author={Subramanian, Ajay and Price, Sara and Kumbhar, Omkar and Sizikova, Elena and Majaj, Najib J and Pelli, Denis G},
+  journal={arXiv preprint arXiv:2206.08427},
+  year={2022}
+}
+```
 
 ## Reference
 [1] Russakovsky, O., Deng, J., Su, H., Krause, J., Satheesh, S., Ma, S., ... & Fei-Fei, L. (2015). Imagenet large scale visual recognition challenge. International journal of computer vision, 115(3), 211-252.
