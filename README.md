@@ -22,20 +22,17 @@ Our human dataset is collected using a reaction time paradigm proposed by McElre
 
 Human dataset and network results can be found at https://osf.io/2cpmb/. Download and unzip `human-data.zip` and `model_data.zip` for human and network data respectively.
 
-The `human_data_analysis/` directory above contains code for analysis and visualization of human data across all experimental conditions.
-
 ## Code
-We benchmark 4 dynamic neural network models - MSDNet [2] , SCAN [3], Cascaded-Nets (CNets) [4]  and ConvRNN [3] on our dataset. The following table mentions the scripts to be used for training and inference of each model. We used code for each model from existing/official implementations (links given below):
+1. Code to generate image dataset used in the paper is available in the `generate_images` directory.
+2. JSON files corresponding to LabJS studies used to collect human data are available in the `human_data_collection` directory.
+3. Code used to analyze human data is available as notebooks in the `human_data_analysis` directory.
+4. We benchmark 4 dynamic neural network models - MSDNet [2] , SCAN [3], Cascaded-Nets (CNets) [4]  and ConvRNN [3] on our dataset. The following table mentions the scripts to be used for training and inference of each model. We used code for each model from existing/official implementations (links given below):
+  - MSDNet: https://github.com/kalviny/MSDNet-PyTorch
+  - SCAN: https://github.com/ArchipLab-LinfengZhang/pytorch-scalable-neural-networks
+  - ConvRNN: https://github.com/cjspoerer/rcnn-sat
+  - CNet: https://github.com/michael-iuzzolino/CascadedNets
 
-MSDNet: https://github.com/kalviny/MSDNet-PyTorch
-
-SCAN: https://github.com/ArchipLab-LinfengZhang/pytorch-scalable-neural-networks
-
-ConvRNN: https://github.com/cjspoerer/rcnn-sat
-
-CNet: https://github.com/michael-iuzzolino/CascadedNets
-
-Code for each model is available in a subdirectory with the model's name. Documentation, instructions for training and inference and links to pretrained networks will be added soon for all models in their respective README.md files.
+  Code for each model is available in a subdirectory with the model's name. Links to pretrained networks will be added to respective README.md files upon publication.
 
 ## Citation
 ```
