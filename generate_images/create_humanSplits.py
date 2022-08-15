@@ -2,10 +2,11 @@ import os
 import argparse
 import random
 import torch
-from PIL import Image
+from PIL import Image, ImageDraw
 from torchvision import transforms
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import fftpack
 
 from ImagenetCOCOMapping import mappings
 
@@ -15,11 +16,11 @@ torch.random.manual_seed(42)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/16ClassImagenet')
-parser.add_argument('--output_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/NoiseSplit_gray_contrast0.2')
+parser.add_argument('--output_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/FrequencyNoiseSplit_gray_contrast0.2_freq50')
 parser.add_argument('--n_modes', type=int, default=3) # number of noise, blur or color values.
 parser.add_argument('--n_rts', type=int, default=5) # number of reaction time blocks
 
-parser.add_argument('--mode', type=str, default='noise')
+parser.add_argument('--mode', type=str, default='cbm')
 args = parser.parse_args()
 args.dataset_dir = '/Users/ajay/Desktop/Datasets/Imagenet_ILSVRC2012_classification-localization/ILSVRC/Data/CLS-LOC/val'
 
@@ -28,65 +29,137 @@ n_time_training = 50
 n_samples_needed_per_mode = (1000 + n_time_training) // (args.n_rts * args.n_modes) # 105
 
 class AddGaussianBlur(object):
-    def __init__(self, kernel=7, std=1.0):
-        self.kernel = kernel
-        self.std = std
-    
-    def __call__(self, tensor):
-        if self.std != 0.0:
-            tensor = transforms.GaussianBlur(kernel_size = 7,sigma=self.std)(tensor)
+	def __init__(self, kernel=7, std=1.0):
+		self.kernel = kernel
+		self.std = std
+	
+	def __call__(self, tensor):
+		if self.std != 0.0:
+			tensor = transforms.GaussianBlur(kernel_size = 7,sigma=self.std)(tensor)
 
-        return tensor
-    
-    def __repr__(self):
-        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+		return tensor
+	
+	def __repr__(self):
+		return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 class AddGaussianNoise(object):
-    """
-    Author: Omkar Kumbhar
-    Description:
-    Adding gaussian noise to images in the batch
-    """
-    def __init__(self, mean=0., std=1., contrast=0.1):
-        self.std = std
-        self.mean = mean
-        self.contrast = contrast
+	"""
+	Author: Omkar Kumbhar
+	Description:
+	Adding gaussian noise to images in the batch
+	"""
+	def __init__(self, mean=0., std=1., contrast=0.2):
+		self.std = std
+		self.mean = mean
+		self.contrast = contrast
 
-    def __call__(self, tensor):
-        noise = torch.Tensor()
-        n = tensor.size(1) * tensor.size(2)
-        sd2 = self.std * 2
+	def __call__(self, tensor):
+		noise = torch.Tensor()
+		n = tensor.size(1) * tensor.size(2)
+		sd2 = self.std * 2
 
-        while len(noise) < n:
-            # more samples than we require
-            m = 2 * (n - len(noise))
-            new = torch.randn(m) * self.std
+		while len(noise) < n:
+			# more samples than we require
+			m = 2 * (n - len(noise))
+			new = torch.randn(m) * self.std
 
-            # remove out-of-range samples
-            new = new[new >= -sd2]
-            new = new[new <= sd2]
+			# remove out-of-range samples
+			new = new[new >= -sd2]
+			new = new[new <= sd2]
 
-            # append to noise tensor
-            noise = torch.cat([noise, new])
-        
-        # pick first n samples and reshape to 2D
-        noise = torch.reshape(noise[:n], (tensor.size(1), tensor.size(2)))
+			# append to noise tensor
+			noise = torch.cat([noise, new])
+		
+		# pick first n samples and reshape to 2D
+		noise = torch.reshape(noise[:n], (tensor.size(1), tensor.size(2)))
 
-        # stack noise and translate by mean to produce std + 
-        newnoise = torch.stack([noise, noise, noise]) + self.mean
+		# stack noise and translate by mean to produce std + 
+		newnoise = torch.stack([noise, noise, noise]) + self.mean
 
-        # shift image hist to mean = 0.5
-        tensor = tensor + (0.5 - tensor.mean())
+		# shift image hist to mean = 0.5
+		tensor = tensor + (0.5 - tensor.mean())
 
-        # self.contrast = 1.0 / (5. * max(1.0, tensor.max() + sd2, 1.0 + (0 - tensor.min() - sd2)))
-        # print(self.contrast)
+		# self.contrast = 1.0 / (5. * max(1.0, tensor.max() + sd2, 1.0 + (0 - tensor.min() - sd2)))
+		# print(self.contrast)
 
-        tensor = transforms.functional.adjust_contrast(tensor, self.contrast)
-        
-        return tensor + newnoise + self.mean
+		tensor = transforms.functional.adjust_contrast(tensor, self.contrast)
+		
+		return tensor + newnoise + self.mean
 
-    def __repr__(self):
-        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+	def __repr__(self):
+		return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+
+class AddFrequencyNoise(object):
+	def __init__(self, mean=0., std=1., contrast=0.2, lpf_r1=0, lpf_r2=320):
+		self.std = std
+		self.mean = mean
+		self.contrast = contrast
+		self.lpf_r1 = lpf_r1
+		self.lpf_r2 = lpf_r2
+
+	def __call__(self, tensor):
+		noise = torch.Tensor()
+		n = tensor.size(1) * tensor.size(2)
+		sd2 = self.std * 2
+
+		while len(noise) < n:
+			# more samples than we require
+			m = 2 * (n - len(noise))
+			new = torch.randn(m) * self.std
+
+			# remove out-of-range samples
+			new = new[new >= -sd2]
+			new = new[new <= sd2]
+
+			# append to noise tensor
+			noise = torch.cat([noise, new])
+		
+		# pick first n samples and reshape to 2D
+		noise = torch.reshape(noise[:n], (tensor.size(1), tensor.size(2)))
+
+		# add noise to frequencies in bandwidth
+		noise = noise.numpy()
+
+		# find fft of noise
+		Fnoise = np.fft.fftshift(np.fft.fft2(noise))
+
+		# Create a low pass filter mask
+		x, y = noise.shape[0], noise.shape[1]
+		bbox1 = ((x/2)-(self.lpf_r1/2),(y/2)-(self.lpf_r1/2),(x/2)+(self.lpf_r1/2),(y/2)+(self.lpf_r1/2))
+		bbox2 = ((x/2)-(self.lpf_r2/2),(y/2)-(self.lpf_r2/2),(x/2)+(self.lpf_r2/2),(y/2)+(self.lpf_r2/2))
+		lpf = Image.new("L", (noise.shape[0], noise.shape[1]), color=0)
+		lpf_draw = ImageDraw.Draw(lpf)
+		lpf_draw.ellipse(bbox2, fill=1)
+		lpf_draw.ellipse(bbox1, fill=0)
+		lpf_np = np.array(lpf, dtype=np.float32)
+
+		# Filter noise using low pass filter
+		Fnoise_filtered = np.multiply(Fnoise, lpf_np)
+
+		# Inverse FFT
+		noise_filtered = np.real(np.fft.ifft2(np.fft.ifftshift(Fnoise_filtered)))
+		noise_filtered = np.maximum(0, np.minimum(noise_filtered, 1))
+
+		noise = torch.Tensor(noise_filtered)
+
+		# stack noise and translate by mean to produce std + 
+		newnoise = torch.stack([noise, noise, noise]) + self.mean
+
+		# shift image hist to mean = 0.5
+		tensor = tensor + (0.5 - tensor.mean())
+
+		# self.contrast = 1.0 / (5. * max(1.0, tensor.max() + sd2, 1.0 + (0 - tensor.min() - sd2)))
+		# print(self.contrast)
+
+		# change contrast of image before adding noise
+		tensor = transforms.functional.adjust_contrast(tensor, self.contrast)
+		
+		return tensor + newnoise
+
+	def __repr__(self):
+		return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
 
 def create_splits_flist():
 	def get_fcount(category):
@@ -175,6 +248,19 @@ def transform_image(img):
 			AddGaussianNoise(0., mode),
 			transforms.ToPILImage(),
 		])
+
+	elif args.mode == 'cbm':
+		# mode = random.choice([0,0.04,0.16])
+		mode = 0.16
+		lpf_r1, lpf_r2 = 80, 160
+		tf = transforms.Compose([
+			transforms.Resize((224,224)),
+			transforms.Grayscale(num_output_channels=3),
+			transforms.ToTensor(),
+			AddFrequencyNoise(0., mode, lpf_r1=lpf_r1, lpf_r2=lpf_r2),
+			transforms.ToPILImage(),
+		])
+		mode = 'r' + str(lpf_r1) + '_' + str(lpf_r2) + '_n' + str(mode)
 
 	elif args.mode == 'blur':
 		mode = random.choice([0,1.,3.])
