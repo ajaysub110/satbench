@@ -16,7 +16,7 @@ torch.random.manual_seed(42)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/16ClassImagenet')
-parser.add_argument('--output_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/FrequencyNoiseSplit_gray_contrast0.2_freq50')
+parser.add_argument('--output_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/FrequencyNoiseSplit_gray_contrast0.2_noise0.16')
 parser.add_argument('--n_modes', type=int, default=3) # number of noise, blur or color values.
 parser.add_argument('--n_rts', type=int, default=5) # number of reaction time blocks
 
@@ -119,7 +119,7 @@ class AddFrequencyNoise(object):
 		noise = torch.reshape(noise[:n], (tensor.size(1), tensor.size(2)))
 
 		# add noise to frequencies in bandwidth
-		noise = noise.numpy()
+		noise = noise.numpy() + 0.5
 
 		# find fft of noise
 		Fnoise = np.fft.fftshift(np.fft.fft2(noise))
@@ -141,10 +141,13 @@ class AddFrequencyNoise(object):
 		noise_filtered = np.real(np.fft.ifft2(np.fft.ifftshift(Fnoise_filtered)))
 		noise_filtered = np.maximum(0, np.minimum(noise_filtered, 1))
 
+		# plt.imshow(noise_filtered, cmap='gray')
+		# plt.show()
+
 		noise = torch.Tensor(noise_filtered)
 
 		# stack noise and translate by mean to produce std + 
-		newnoise = torch.stack([noise, noise, noise]) + self.mean
+		# newnoise = torch.stack([noise, noise, noise]) + self.mean
 
 		# shift image hist to mean = 0.5
 		tensor = tensor + (0.5 - tensor.mean())
@@ -155,7 +158,8 @@ class AddFrequencyNoise(object):
 		# change contrast of image before adding noise
 		tensor = transforms.functional.adjust_contrast(tensor, self.contrast)
 		
-		return tensor + newnoise
+		return tensor + torch.Tensor(noise_filtered.reshape((1,224,224)))
+		# return torch.Tensor(noise_filtered.reshape((1,224,224)))
 
 	def __repr__(self):
 		return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
@@ -252,10 +256,11 @@ def transform_image(img):
 	elif args.mode == 'cbm':
 		# mode = random.choice([0,0.04,0.16])
 		mode = 0.16
-		lpf_r1, lpf_r2 = 80, 160
+		r1r2s = [(0, 20), (20, 40), (40, 80), (80, 160), (160, 224)]
+		lpf_r1, lpf_r2 = random.choice(r1r2s)
 		tf = transforms.Compose([
 			transforms.Resize((224,224)),
-			transforms.Grayscale(num_output_channels=3),
+			transforms.Grayscale(num_output_channels=1),
 			transforms.ToTensor(),
 			AddFrequencyNoise(0., mode, lpf_r1=lpf_r1, lpf_r2=lpf_r2),
 			transforms.ToPILImage(),
