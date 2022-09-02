@@ -10,6 +10,7 @@ cbfs = [10 * 2**i for i in range(0, 4)]
 print(cbfs)
 
 fig, ax = plt.subplots(1, len(cbfs))
+sum_of_noise = None
 for i, cbf in enumerate(cbfs):
 	bw = 0.7 * cbf
 	lpf_r1 = int(cbf - bw/2)
@@ -55,18 +56,28 @@ for i, cbf in enumerate(cbfs):
 	# plt.hist(noise_filtered.ravel(), bins=100)
 	# plt.show()
 
-	# Add filtered noise to image
+	# Add filtered noise to imageZSAvdsa BFSJK.
 	noisy_image = image + noise_filtered
+	print(image.min(), image.max())
+	print(noise_filtered.min(), noise_filtered.max())
+
+	if sum_of_noise is None:
+		sum_of_noise = noise_filtered + imagenet_mean
+	else:
+		sum_of_noise = (sum_of_noise + noise_filtered + imagenet_mean) / 2
+
 	if np.any(noisy_image < 0) or np.any(noisy_image > 1):
 		print("WARNING: Image contains negative or >1 values")
 	# print(noisy_image.mean())
 	# plt.hist(noisy_image.ravel(), bins=100)
 	# plt.show()
 
-	ax[i].imshow(noisy_image, cmap='gray')
+	ax[i].imshow(noise_filtered + imagenet_mean, cmap='gray')
 	ax[i].set_axis_off()
 	ax[i].set_title("r1: {}, r2: {}".format(lpf_r1, lpf_r2))
 	# fig.savefig('noise_filtered_r1={}_r2={}.png'.format(lpf_r1, lpf_r2))
 	
+plt.figure()
+plt.imshow(sum_of_noise, cmap='gray')
 fig.tight_layout()
 plt.show()
