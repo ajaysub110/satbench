@@ -74,16 +74,16 @@ if args.depth == 18:
     net = sresnet.resnet18(num_classes=args.class_num, align="CONV", have_dropout=args.dropout)
     print("using resnet 18")
 if args.depth == 34:
-    net = sresnet.resnet34(num_classes=args.class_num, align="CONV")
+    net = sresnet.resnet34(num_classes=args.class_num, align="CONV", have_dropout=args.dropout)
     print("using resnet 34")
 if args.depth == 50:
-    net = sresnet.resnet50(num_classes=args.class_num, align="CONV")
+    net = sresnet.resnet50(num_classes=args.class_num, align="CONV", have_dropout=args.dropout)
     print("using resnet 50")
 if args.depth == 101:
-    net = sresnet.resnet101(num_classes=args.class_num, align="CONV")
+    net = sresnet.resnet101(num_classes=args.class_num, align="CONV", have_dropout=args.dropout)
     print("using resnet 101")
 if args.depth == 152:
-    net = sresnet.resnet152(num_classes=args.class_num, align="CONV")
+    net = sresnet.resnet152(num_classes=args.class_num, align="CONV", have_dropout=args.dropout)
     print("using resnet 152")
 
 net.to(device)
