@@ -6,13 +6,13 @@ import pyrtools as pt
 
 order = 0
 imsize = 224
-noise_sd = 0.01
+noise_sd = 0.1
 imagenet_mean = 0.449
 image_contrast = 0.1
 
 image = np.array(Image.open('/Users/ajay/code/anytime-prediction-data/ColorGraySplit/0/6_color_gray_g_knife.JPEG').convert('L'), dtype=np.float32)
-image = np.array(Image.open('/Users/ajay/code/anytime-prediction-data/ColorGraySplit/0/34_color_gray_g_elephant.JPEG').convert('L'), dtype=np.float32)
-image = np.array(Image.open('/Users/ajay/code/anytime-prediction-data/ColorGraySplit/0/86_color_gray_g_chair.JPEG').convert('L'), dtype=np.float32)
+# image = np.array(Image.open('/Users/ajay/code/anytime-prediction-data/ColorGraySplit/0/34_color_gray_g_elephant.JPEG').convert('L'), dtype=np.float32)
+# image = np.array(Image.open('/Users/ajay/code/anytime-prediction-data/ColorGraySplit/0/86_color_gray_g_chair.JPEG').convert('L'), dtype=np.float32)
 
 def rmspower(im):
 	return np.sqrt(np.mean(np.square(im)))
@@ -46,5 +46,5 @@ image = (image - image.mean()) * image_contrast + imagenet_mean
 
 noisyims = [image + n for n in recons]
 
-pt.imshow(noisyims, zoom = 0.5)
+pt.imshow(noisyims, zoom = 0.5, vrange=(0,1))
 plt.show()

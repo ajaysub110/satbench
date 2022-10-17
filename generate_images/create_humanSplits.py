@@ -16,11 +16,11 @@ torch.random.manual_seed(42)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/16ClassImagenet')
-parser.add_argument('--output_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/FrequencyNoiseSplit_gray_contrast0.2_noise0.16')
+parser.add_argument('--output_dir', type=str, default='/Users/ajay/code/anytime-prediction-data/GraySplit')
 parser.add_argument('--n_modes', type=int, default=3) # number of noise, blur or color values.
 parser.add_argument('--n_rts', type=int, default=5) # number of reaction time blocks
 
-parser.add_argument('--mode', type=str, default='cbm')
+parser.add_argument('--mode', type=str, default='color_gray')
 args = parser.parse_args()
 args.dataset_dir = '/Users/ajay/Desktop/Datasets/Imagenet_ILSVRC2012_classification-localization/ILSVRC/Data/CLS-LOC/val'
 
@@ -226,7 +226,7 @@ def create_splits_flist():
 
 def transform_image(img):
 	if args.mode == 'color_gray':
-		mode = random.choice(['c','g'])
+		mode = random.choice(['g'])
 
 		if mode == 'g':
 			tf = transforms.Compose([
